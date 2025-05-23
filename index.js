@@ -77,7 +77,7 @@ client.maps = new Map();
 client.setMaxListeners(100);
 require('events').defaultMaxListeners = 100;
 
-["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents"]
+["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler"]
 	.filter(Boolean)
 	.forEach(handler => {
 		require(`./handlers/${handler}`)(client);

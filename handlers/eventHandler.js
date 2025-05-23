@@ -21,8 +21,8 @@ module.exports = async (client) => {
 		};
 
 		await ["client", "guild"].forEach(e => load_dir(e));
-		console.log(`Loaded ${amount} events`.yellow);
+		console.log(`[INFO] Loaded ${amount} events`.blue);
 	} catch (error) {
-		console.error(`Error loading events: ${error.message}`.red);
+		console.error(`[ERROR] loading events: ${error.message}`.red);
 	}
 };

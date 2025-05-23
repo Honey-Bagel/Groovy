@@ -7,7 +7,7 @@ module.exports = {
 	once: true,
 	execute(client) {
 		try {
-			console.log(`Logged in as ${client.user.tag} (${client.user.id})`.green);
+			console.log(`[INFO] Logged in as ${client.user.tag} (${client.user.id})`.green);
 		} catch (error) {
 			console.log(`Error on ready: ${error.message}`.red);
 		}
