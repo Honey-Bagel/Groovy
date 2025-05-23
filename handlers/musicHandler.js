@@ -1,10 +1,29 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 class MusicHandler {
-	constructor(client, distube) {
+	constructor() {
+		if(MusicHandler.instance) {
+			return MusicHandler.instance;
+		}
+
+		this.client = null;
+		this.distube = null;
+		this.guildData = new Map();
+		this.timers = new Map();
+
+		MusicHandler.instance = this;
+	}
+
+	initialize(client, distube) {
 		this.client = client;
 		this.distube = distube;
-		this.guildData = new Map();
+	}
+
+	static getInstance() {
+		if(!MusicHandler.instance) {
+			MusicHandler.instance = new MusicHandler();
+		}
+		return MusicHandler.instance;
 	}
 
 	getGuildData(guildId) {
@@ -26,6 +45,8 @@ class MusicHandler {
 	cleanupGuild(guildId) {
 		const guildData = this.getGuildData(guildId);
 
+		this.stopTimer(guildId);
+
 		if(guildData.nowPlayingMessage) {
 			guildData.nowPlayingMessage.delete().catch((e) => {
 				console.log(`[ERROR] Failed to delete now playing message:`.red);
@@ -40,18 +61,19 @@ class MusicHandler {
 		this.guildData.delete(guildId);
 	}
 
-	createNowPlayingEmbed(track, queue) {
+	createNowPlayingEmbed(track, queue, color = null) {
 		const embed = new EmbedBuilder()
-			.setColor("Random")
-			.setDescription(`See the [Queue on the **Dashboard** Live!](${require('../dashboard/settings.json').website.domain}/queue/${queue.id})`)
-			.addFields({ name: `💡 Requested by:`, value: `>>> ${newTrack.user}`, inline: true },
-				{ name: `⏱ Duration:`, value: `>>> \`${newQueue.formattedCurrentTime} / ${newTrack.formattedDuration}\``, inline: true },
-				{ name: `🌀 Queue:`, value: `>>> \`${newQueue.songs.length} song(s)\`\n\`${newQueue.formattedDuration}\``, inline: true },
-				{ name: `🔊 Volume:`, value: `>>> \`${newQueue.volume} %\``, inline: true },
-				{ name: `♾ Loop:`, value: `>>> ${newQueue.repeatMode ? (newQueue.repeatMode === 2 ? `${client.allEmojis.check_mark}\` Queue\`` : `${client.allEmojis.check_mark} \`Song\``) : `${client.allEmojis.x}`}`, inline: true },
-				{ name: `↪️ Autoplay:`, value: `>>> ${newQueue.autoplay ? `${client.allEmojis.check_mark}` : `${client.allEmojis.x}`}`, inline: true },
-				{ name: `❔ Song Link:`, value: `>>> [\`Click here\`](${newTrack.url})`, inline: true },
-				{ name: `❔ Filter${newQueue.filters.length > 0 ? `s` : ``}:`, value: `>>> ${newQueue.filters && newQueue.filters.length > 0 ? `${newQueue.filters.map((f) => `\`${f}\``).join(`, `)}` : `${client.allEmojis.x}`}`, inline: newQueue.filters.length > 1 ? false : true }
+			.setColor(color ? color : "Random")
+			//.setDescription(`See the [Queue on the **Dashboard** Live!](${require('../dashboard/settings.json').website.domain}/queue/${queue.id})`)
+			.setDescription(`See the Queue on the **Dashboard** Live! _disabled_`)
+			.addFields({ name: `💡 Requested by:`, value: `>>> ${track.user}`, inline: true },
+				{ name: `⏱ Duration:`, value: `>>> \`${queue.formattedCurrentTime} / ${track.formattedDuration}\``, inline: true },
+				{ name: `🌀 Queue:`, value: `>>> \`${queue.songs.length} song(s)\`\n\`${queue.formattedDuration}\``, inline: true },
+				{ name: `🔊 Volume:`, value: `>>> \`${queue.volume} %\``, inline: true },
+				{ name: `♾ Loop:`, value: `>>> ${queue.repeatMode ? (queue.repeatMode === 2 ? `${this.client.allEmojis.check_mark}\` Queue\`` : `${this.client.allEmojis.check_mark} \`Song\``) : `${this.client.allEmojis.x}`}`, inline: true },
+				{ name: `↪️ Autoplay:`, value: `>>> ${queue.autoplay ? `${this.client.allEmojis.check_mark}` : `${this.client.allEmojis.x}`}`, inline: true },
+				{ name: `❔ Song Link:`, value: `>>> [\`Click here\`](${track.url})`, inline: true },
+				{ name: `❔ Filter${queue.filters.length > 0 ? `s` : ``}:`, value: `>>> ${queue.filters && queue.filters.length > 0 ? `${queue.filters.map((f) => `\`${f}\``).join(`, `)}` : `${this.client.allEmojis.x}`}`, inline: queue.filters.length > 1 ? false : true }
 			)
 			.setAuthor({
 				name: `${track.name}`,
@@ -62,6 +84,7 @@ class MusicHandler {
 				text: `${track.user.tag}`,
 				iconURL: track.user.displayAvatarURL({ dynamic: true })
 			});
+		return embed;
 	}
 
 	createQueueEmbed(queue, page = 0) {
@@ -133,7 +156,7 @@ class MusicHandler {
 		const guildData = this.getGuildData(guildId);
 		if(!guildData.textChannel) return;
 
-		const embed = this.createNowPlayingEmbed(track, queue);
+		const embed = this.createNowPlayingEmbed(track, queue, guildData.nowPlayingMessage?.embeds[0]?.color);
 
 		try {
 			if(guildData.nowPlayingMessage) {
@@ -143,7 +166,7 @@ class MusicHandler {
 				this.updateGuildData(guildId, { nowPlayingMessage: message });
 			}
 		} catch (error) {
-			console.error(`[ERROR] Failed to update now playing message: ${error.message}`.red);
+			console.error(`[ERROR] Failed to update now playing message: ${error.stack}`.red);
 		}
 	}
 
@@ -168,4 +191,101 @@ class MusicHandler {
 	setTextChannel(guildId, channel) {
 		this.updateGuildData(guildId, { textChannel: channel });
 	}
+
+	createQueueButtons(currentPage, totalPages, guildId) {
+		if (totalPages <= 1) return null;
+
+		const row = new ActionRowBuilder();
+
+		// Previous page button
+		row.addComponents(
+			new ButtonBuilder()
+				.setCustomId(`queue_prev_${guildId}`)
+				.setLabel('◀️ Previous')
+				.setStyle(ButtonStyle.Primary)
+				.setDisabled(currentPage === 0)
+		);
+
+		// Page indicator
+		row.addComponents(
+			new ButtonBuilder()
+				.setCustomId(`queue_page_${guildId}`)
+				.setLabel(`${currentPage + 1}/${totalPages}`)
+				.setStyle(ButtonStyle.Secondary)
+				.setDisabled(true)
+		);
+
+		// Next page button
+		row.addComponents(
+			new ButtonBuilder()
+				.setCustomId(`queue_next_${guildId}`)
+				.setLabel('Next ▶️')
+				.setStyle(ButtonStyle.Primary)
+				.setDisabled(currentPage === totalPages - 1)
+		);
+
+		return row;
+	}
+
+	// Handle button interactions
+	async handleButtonInteraction(interaction) {
+		if (!interaction.customId.startsWith('queue_')) return false;
+
+		const guildId = interaction.guild.id;
+		const queue = this.distube.getQueue(guildId);
+
+		if (!queue) {
+			await interaction.reply({ content: 'No queue found!', ephemeral: true });
+			return true;
+		}
+
+		const guildData = this.getGuildData(guildId);
+		let newPage = guildData.queuePage;
+
+		if (interaction.customId.includes('prev')) {
+			newPage = Math.max(0, guildData.queuePage - 1);
+		} else if (interaction.customId.includes('next')) {
+			const { totalPages } = this.createQueueEmbed(queue, 0);
+			newPage = Math.min(totalPages - 1, guildData.queuePage + 1);
+		} else {
+			// Page indicator button - just acknowledge
+			await interaction.deferUpdate();
+			return true;
+		}
+
+		// Update the queue message with new page
+		await this.updateQueueMessage(guildId, queue, newPage);
+		await interaction.deferUpdate();
+
+		return true;
+	}
+
+	startTimer(guildId) {
+		this.stopTimer(guildId);
+
+		const timer = setInterval(async () => {
+			const queue = this.distube.getQueue(guildId);
+
+			if(!queue || !queue.playing || queue.paused) {
+				return;
+			}
+
+			const currentSong = queue.songs[0];
+			if(currentSong) {
+				await this.updateNowPlayingMessage(guildId, currentSong, queue);
+			}
+		}, 5000); // Every 5 seconds
+
+		this.timers.set(guildId, timer);
+	}
+
+	stopTimer(guildId) {
+		const timer = this.timers.get(guildId);
+		if(timer) {
+			clearInterval(timer);
+			this.timers.delete(guildId);
+		}
+	}
 }
+
+module.exports = MusicHandler;

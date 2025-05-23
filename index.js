@@ -8,6 +8,7 @@ const { GatewayIntentBits, Partials } = require("discord.js");
 //const Setting = require("./models/Settings.js");
 const fs = require("fs");
 const colors = require("colors");
+const MusicHandler = require("./handlers/musicHandler.js");
 
 require('dotenv').config();
 
@@ -77,10 +78,15 @@ client.maps = new Map();
 client.setMaxListeners(100);
 require('events').defaultMaxListeners = 100;
 
+client.distube.setMaxListeners(100);
+
 ["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler"]
 	.filter(Boolean)
 	.forEach(handler => {
 		require(`./handlers/${handler}`)(client);
 	});
+
+const musicHandler = new MusicHandler();
+musicHandler.initialize(client, client.distube);
 
 client.login(process.env.TOKEN);
