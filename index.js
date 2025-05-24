@@ -16,6 +16,8 @@ require('dotenv').config();
 const { SpotifyPlugin } = require("@distube/spotify");
 const { YouTubePlugin } = require("@distube/youtube");
 const { DirectLinkPlugin } = require("@distube/direct-link");
+const { YtDlpPlugin } = require("@distube/yt-dlp");
+const { AppleMusicPlugin } = require("distube-apple-music");
 
 // Create discord bot client
 const client = new Discord.Client({
@@ -46,7 +48,7 @@ let spotifyOptions = {
 if(config.spotify_api.enabled) {
 	spotifyOptions.api = {
 		clientId: process.env.SPOTIFY_CLIENTID,
-		clientSecret: process.env.SPOTIFY_CLIENTSECRET,
+		clientSecret: process.env.SPOTIFY_SECRET,
 	};
 }
 
@@ -62,6 +64,10 @@ client.distube = new DisTube(client, {
 		new SpotifyPlugin(spotifyOptions),
 		new YouTubePlugin(), // prolly need to add cookie
 		new DirectLinkPlugin(),
+		new AppleMusicPlugin(),
+		new YtDlpPlugin({
+			update: true,
+		})
 	],
 });
 

@@ -3,6 +3,9 @@ const Discord = require("discord.js");
 const config = require("../configs/config.json");
 const settings = require("../configs/settings.json");
 const path = require("path");
+const Setting = require("../models/Settings");
+const ee = require("../configs/embed.json");
+const emojis = require("../configs/emojis.json");
 
 module.exports.change_status = change_status;
 module.exports.isChannelFull = isChannelFull;
@@ -10,6 +13,7 @@ module.exports.isUserInChannel = isUserInChannel;
 module.exports.isQueueValid = isQueueValid;
 module.exports.hasValidChannel = hasValidChannel;
 module.exports.sendErrorMessage = sendErrorMessage;
+module.exports.embedThen = embedThen;
 
 function change_status(client) {
 	const statusList = [`${config.prefix}help in ${client.guilds.cache.size} servers`, `BOT WORKING AGAIN! Sorry for the wait.`];
@@ -63,7 +67,7 @@ function hasValidChannel(guild, message, channel) {
 		return message.channel.send({
 			embeds: [ new EmbedBuilder()
 				.setColor(ee.wrongcolor)
-				.setTitle(`${client.allEmojis.x} **Please join ${guild.members.me.voice.channel ? "__my__" : "a"} VoiceChannel First.**`)
+				.setTitle(`${emojis.x} **Please join ${guild.members.me.voice.channel ? "__my__" : "a"} VoiceChannel First.**`)
 			]
 		});
 	}
@@ -75,7 +79,7 @@ function isChannelFull(message, channel) {
 			embeds: [new MessageEmbed()
    	     .setColor(ee.wrongcolor)
     	    .setFooter(ee.footertext, ee.footericon)
-   	     .setTitle(`${client.allEmojis.x} Your Voice Channel is full, I can't join!`)
+   	     .setTitle(`${emojis.x} Your Voice Channel is full, I can't join!`)
    	   ],
  	   });
 	}
@@ -87,7 +91,7 @@ function isUserInChannel(message, channel) {
 			embeds: [new EmbedBuilder()
 				.setColor(ee.wrongcolor)
 				.setFooter(ee.footertext, ee.footericon)
-				.setTitle(`${client.allEmojis.x} I am already connected somewhere else`)
+				.setTitle(`${emojis.x} I am already connected somewhere else`)
 			],
 		});
 	}
@@ -107,10 +111,10 @@ function isQueueValid(client, message) {
 
 function sendErrorMessage(channel, title, message) {
 	if(!channel) return;
-	channel.send({
+	return channel.send({
 		embeds: [new EmbedBuilder()
 			.setColor(ee.wrongcolor)
-			.setTitle(`${client.allEmojis.x} - ${title}`)
+			.setTitle(`${emojis.x} - ${title}`)
 			.setDescription(message)
 		]
 	}).then((msg) => {
@@ -120,4 +124,26 @@ function sendErrorMessage(channel, title, message) {
 			});
 		}, 5000);
 	});
+}
+
+async function embedThen(guildId, botEmbed, message) {
+	const guildSettings = await Setting.findOne({ _id: guildId });
+	if(!guildSettings) {
+		console.log(`[ERROR] {Function} No Guild Settings found for ${guildId}`);
+		return;
+	}
+
+	const { deleteUserMessages, deleteBotMessages, deleteAfter } = guildSettings;
+	setTimeout(() => {
+		if(deleteUserMessages) {
+			message.delete().catch((e) => {
+				//
+			});
+		}
+		if(deleteBotMessages) {
+			botEmbed.delete().catch((e) => {
+				//
+			});
+		}
+	}, deleteAfter ? deleteAfter : 5000);
 }

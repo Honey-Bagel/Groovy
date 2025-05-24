@@ -16,9 +16,11 @@
     "@distube/direct-link": "^1.0.1",
     "@distube/spotify": "^2.0.2",
     "@distube/youtube": "^1.0.4",
+    "@distube/yt-dlp": "^2.0.1",
     "colors": "^1.4.0",
     "discord": "^0.8.2",
     "distube": "^5.0.7",
+    "distube-apple-music": "^0.1.0",
     "dotenv": "^16.5.0",
     "mongoose": "^8.15.0",
     "nodemon": "^3.1.10"

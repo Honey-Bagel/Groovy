@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const ee = require("../../configs/embed.json");
 const { hasValidChannel, isChannelFull, isUserInChannel, getAudioStream, isYTLink } = require("../../handlers/functions.js");
+const { embedThen, sendErrorMessage } = require("../../handlers/functions.js");
 
 module.exports = {
 	name: "play",
@@ -15,21 +16,6 @@ module.exports = {
 			const { member, channelId, guildId } = message;
 			const { guild } = member;
 			const { channel } = member.voice;
-			if(!channel) {
-				return message.channel.send({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(ee.wrongcolor)
-							.setTitle(`${client.allEmojis.x} **Please join ${guild.members.me.voice.channl ? "__my__" : "a"} VoiceChannel First!**`)
-					]
-				}).then((msg) => {
-					setTimeout(() => {
-						msg.delete().catch((e) => {
-							//
-						});
-					}, 5000);
-				});
-			}
 
 			hasValidChannel(client, message, channel);
 			isChannelFull(message, channel);
@@ -44,6 +30,8 @@ module.exports = {
 							.setTitle(`${client.allEmojis.x} **Please provide a Query**`)
 							.setDescription(`**Usage:**\n> \`${client.settings.get(message.guild.id, "prefix")}play <Search/Link>\``)
 					]
+				}).then((msg) => {
+					embedThen(guildId, msg, message);
 				});
 			}
 
@@ -68,15 +56,12 @@ module.exports = {
 							.setDescription(`\`\`\`${err.message}\`\`\``)
 					]
 				}).then((msg) => {
-					setTimeout(() => {
-						msg.delete().catch((e) => {
-							//
-						});
-					}, 5000);
+					embedThen(guildId, msg, message);
 				});
 			}
 		} catch (err) {
 			console.error(`[ERROR] Failed to play song: ${err.message}`.red);
+			sendErrorMessage(message.channel, "Failed to play the song", err.message);
 		}
 	}
 };

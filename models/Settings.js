@@ -51,6 +51,21 @@ const SettingsSchema = new Schema({
 		default: true,
 		required: true
  	 },
+	deleteUserMessages: {
+		type: Boolean,
+		default: true,
+		required: true
+	},
+	deleteBotMessages: {
+		type: Boolean,
+		default: true,
+		required: true
+	},
+	deleteAfter: {
+		type: Number,
+		default: 5000,
+		required: true
+	}
 });
 
 module.exports = mongoose.model("Setting", SettingsSchema);
