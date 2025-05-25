@@ -26,7 +26,6 @@ module.exports = {
 					embeds: [
 						new EmbedBuilder()
 							.setColor(ee.wrongcolor)
-							.setFooter(ee.footertext, ee.footericon)
 							.setTitle(`${client.allEmojis.x} **Please provide a Query**`)
 							.setDescription(`**Usage:**\n> \`${client.settings.get(message.guild.id, "prefix")}play <Search/Link>\``)
 					]
