@@ -14,6 +14,7 @@ module.exports.isQueueValid = isQueueValid;
 module.exports.hasValidChannel = hasValidChannel;
 module.exports.sendErrorMessage = sendErrorMessage;
 module.exports.embedThen = embedThen;
+module.exports.delay = delay;
 
 function change_status(client) {
 	const statusList = [`${config.prefix}help in ${client.guilds.cache.size} servers`, `BOT WORKING AGAIN! Sorry for the wait.`];
@@ -146,4 +147,16 @@ async function embedThen(guildId, botEmbed, message) {
 			});
 		}
 	}, deleteAfter ? deleteAfter : 5000);
+}
+
+function delay(delayInms) {
+	try {
+		return new Promise((resolve) => {
+			setTimeout(() => {
+				resolve(2);
+			}, delayInms);
+		});
+	} catch (e) {
+		console.log(String(e.stack).bgRed);
+	}
 }

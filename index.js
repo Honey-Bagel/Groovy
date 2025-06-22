@@ -80,13 +80,15 @@ client.dmAliases = new Discord.Collection();
 client.categories = fs.readdirSync("./commands/");
 client.allEmojis = require("./configs/emojis.json");
 client.maps = new Map();
+client.PlayerMap = new Map();
+client.playerintervals = new Map();
 
 client.setMaxListeners(100);
 require('events').defaultMaxListeners = 100;
 
 client.distube.setMaxListeners(100);
 
-["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler"]
+["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler", "autoresume"]
 	.filter(Boolean)
 	.forEach(handler => {
 		require(`./handlers/${handler}`)(client);

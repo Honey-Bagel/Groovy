@@ -22,6 +22,11 @@ const SettingsSchema = new Schema({
 		default: 100,
 		required: true,
 	},
+	maxVolume: {
+		type: String,
+		default: 200,
+		required: true,
+	},
 	autoresume: {
 		type: Boolean,
 		default: true,

@@ -31,7 +31,8 @@ class MusicHandler {
 			this.guildData.set(guildId, {
 				nowPlayingMessage: null,
 				queueMessage: null,
-				textChannel: null
+				textChannel: null,
+				queuePage: 0,
 			});
 		}
 		return this.guildData.get(guildId);
@@ -90,11 +91,14 @@ class MusicHandler {
 	createQueueEmbed(queue, page = 0) {
 		const embed = new EmbedBuilder()
 			.setTitle('📋 Queue')
-			.setColor('#0099ff');
+			.setColor('#0099ff')
+			.setDescription('Fetching queue...');
 
 		if (queue.songs.length === 0) {
 			embed.setDescription('Queue is empty');
 			return { embed, totalPages: 0 };
+		} else {
+			embed.setDescription(`Total songs in queue: ${queue.songs.length - 1}`); // -1 to exclude current song
 		}
 
 		const songsPerPage = 10;
@@ -170,21 +174,27 @@ class MusicHandler {
 		}
 	}
 
-	async updateQueueMessage(guildId, queue) {
+	async updateQueueMessage(guildId, queue, page = 0) {
 		const guildData = this.getGuildData(guildId);
 		if(!guildData.textChannel) return;
 
-		const embed = this.createQueueEmbed(queue);
+		const { embed, totalPages, currentPage } = this.createQueueEmbed(queue, page);
+
+		this.updateGuildData(guildId, { queuePage: page });
+
+		const buttons = this.createQueueButtons(currentPage, totalPages, guildId);
+		const messageOptions = { embeds: [embed] };
+		if (buttons) messageOptions.components = [buttons];
 
 		try {
 			if(guildData.queueMessage) {
-				await guildData.queueMessage.edit({ embeds: [embed] });
+				await guildData.queueMessage.edit(messageOptions);
 			} else {
-				const message = await guildData.textChannel.send({ embeds: [embed] });
-				this.updateGuildData(guildId, { queueMessage: message });
+				const message = await guildData.textChannel.send(messageOptions);
+				this.updateGuildData(guildId, { queueMessage: message, queuePage: page });
 			}
 		} catch (error) {
-			console.error(`[ERROR] Failed to update queue message: ${error.message}`.red);
+			console.error(`[ERROR] Failed to update queue message: ${error.stack}`.red);
 		}
 	}
 

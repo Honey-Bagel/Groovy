@@ -59,7 +59,7 @@ module.exports = {
 				});
 			}
 		} catch (err) {
-			console.error(`[ERROR] Failed to play song: ${err.message}`.red);
+			console.error(`[ERROR] Failed to play song: ${err.stack}`.red);
 			sendErrorMessage(message.channel, "Failed to play the song", err.message);
 		}
 	}
