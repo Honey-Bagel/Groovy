@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
-const { hasValidChannel, isUserInChannel } = require('../../handlers/functions.js');
+const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "skip",
@@ -11,56 +12,54 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("skip")
+		.setDescription("Skips the current song"),
+
 	execute: async (client, message, args) => {
-		const { member, channelId, guildId } = message;
-		const { guild } = member;
-		const { channel } = member.voice;
+		return executeCommand(client, { message, args });
+	},
 
-		hasValidChannel(guild, message, channel);
-		isUserInChannel(message, channel);
-
-		try {
-			let newQueue = client.distube.getQueue(guildId);
-
-			if(!newQueue || !newQueue.songs || newQueue.songs.length == 0) {
-				return message.channel.send({
-					embeds: [ new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **I am not playing anything**`)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			// If there are no other songs in the queue, stop the queue
-			if(newQueue.songs.length <= 1) {
-				await newQueue.stop();
-				return message.channel.send({
-					embeds: [ new EmbedBuilder()
-						.setColor("Green")
-						.setTitle("⏭ | Skipped the song")
-						.setDescription(">>> There are no more songs to play")
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			await newQueue.skip();
-			return message.channel.send({
-				embeds: [ new EmbedBuilder()
-					.setColor("Green")
-					.setTitle("⏭ | Skipped the song")
-					.setFooter({ text: `Action by: ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-
-		} catch (err) {
-			console.log(`[ERROR] skip.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to skip the song", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+		const { member, channelId, guildId, voiceChannel, guild } = ctx;
+
+		if (!hasValidChannel(context, guild, voiceChannel)) return;
+		if (!isUserInChannel(context, voiceChannel)) return;
+		if (!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+
+		if(newQueue.songs.length === 0) {
+			await newQueue.stop();
+			return sendFollowUp(context, {
+				embeds: [new EmbedBuilder()
+					.setColor("Green")
+					.setTitle("⏭ | Skipped the song")
+					.setDescription(">>> There are no more songs to play")
+				]
+			});
+		}
+
+		await newQueue.skip();
+		return sendFollowUp(context, {
+			embeds: [new EmbedBuilder()
+				.setColor("Green")
+				.setTitle("⏭ | Skipped the song")
+			]
+		});
+	} catch (err) {
+		console.error(`[ERROR] skip.js: ${err.stack}`.red);
+		sendError(context, "An error occurred while executing the command", err.message);
+	}
+}

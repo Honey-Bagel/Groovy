@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "forward",
@@ -11,51 +12,61 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("fastforward")
+		.setDescription("Fast forwards the current song by a specified number of seconds")
+		.addIntegerOption(option =>
+			option.setName('time')
+				.setDescription('The number of seconds to forward the song')
+				.setRequired(true)
+		),
 	execute: async (client, message, args) => {
-		try {
-			const { member, guildId } = message;
-			const { guild } = member;
-			const { channel } = member.voice;
-			hasValidChannel(client, message, channel);
-			isUserInChannel(message, channel);
-			isQueueValid(client, message);
+		return executeCommand(client, { message, args });
+	},
 
-			let newQueue = client.distube.getQueue(guildId);
-
-			if(!args || (args && !args[0])) {
-				return message.channel.send({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(ee.wrongcolor)
-							.setTitle(`${client.allEmojis.x} **Please provide a time in seconds to forward**`)
-							.setDescription(`**Usage:**\n> \`forward <TimeinSeconds>\``)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			let seekNumber = Number(args[0]);
-			let seekTime = newQueue.currentTime + seekNumber;
-			if(seekTime >= newQueue.songs[0].duration) {
-				seekTime = newQueue.songs[0].duration - 1; // Prevent seeking beyond the song duration
-			}
-
-			await newQueue.seek(seekTime);
-			return message.channel.send({
-				embeds: [ new EmbedBuilder()
-					.setColor("Green")
-					.setTitle("⏩ | Forwarded the song")
-					.setDescription(`>>> Forwarded the song by \`${seekTime} seconds\` to \`${newQueue.currentTime}\``)
-					.setFooter({ text: `Action by: ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-
-		} catch (err) {
-			console.log(`[ERROR] forward.js: ${err.stack}`.red);
-			sendErrorMessage(message.channel, "Failed to forward the song", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+		const parameter = getQuery(context, 'time');
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+		const { member, channelId, guildId, voiceChannel, guild } = ctx;
+
+		if (!hasValidChannel(context, guild, voiceChannel)) return;
+		if (!isUserInChannel(context, voiceChannel)) return;
+		if (!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+
+		if (!parameter) {
+			sendError(context, "Please provide a time in seconds to forward", `**Usage:**\n> \`${client.settings.get(guildId, "prefix")}forward <TimeinSeconds>\``);
+			return;
+		}
+
+		let seekNumber = Number(parameter);
+		let seekTime = newQueue.currentTime + seekNumber;
+		if (seekTime >= newQueue.songs[0].duration) {
+			seekTime = newQueue.songs[0].duration - 1; // Prevent seeking beyond the song duration
+		}
+
+		await newQueue.seek(seekTime);
+		sendFollowUp(context, {
+			embeds: [new EmbedBuilder()
+				.setColor("Green")
+				.setTitle("⏩ | Forwarded the song")
+				.setDescription(`>>> The song has been forwarded by \`${seekNumber} seconds\` to \`${seekTime} seconds\``)
+			]
+		});
+
+	} catch (err) {
+		console.log(`[ERROR] forward.js: ${err.stack}`.red);
+		sendError(context, "Failed to forward the song", err.message);
+	}
+}

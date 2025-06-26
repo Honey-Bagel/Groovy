@@ -3,7 +3,7 @@ const { EmbedBuilder } = require("discord.js");
 const { sendErrorMessage } = require("../../handlers/functions.js");
 const MusicHandler = require("../../handlers/musicHandler.js");
 const musicHandler = MusicHandler.getInstance();
-const { updateAutoresume } = require("../../controllers/AutoresumeController.js");
+const { updateAutoresume, getAutoresume } = require("../../controllers/AutoresumeController.js");
 const { getSetting } = require("../../controllers/SettingController.js");
 const settings = require('../../configs/settings.json');
 const Setting = require("../../models/Settings.js");
@@ -20,7 +20,7 @@ module.exports = {
 			let data = await Setting.findOne({ _id: queue.id });
 
 			queue.autoplay = Boolean(data.defaultautoplay);
-			queue.volume = Number(data.defaultautoplay);
+			queue.volume = Number(data.defaultVolume);
 
 			// Handle Autoresuming
 

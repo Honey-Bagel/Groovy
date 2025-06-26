@@ -42,7 +42,6 @@ const client = new Discord.Client({
 
 // Spotify Options
 let spotifyOptions = {
-
 };
 
 if(config.spotify_api.enabled) {
@@ -55,7 +54,7 @@ if(config.spotify_api.enabled) {
 // Initialize distube client
 
 client.distube = new DisTube(client, {
-	emitNewSongOnly: true,
+	emitNewSongOnly: false,
 	savePreviousSongs: true,
 	emitAddSongWhenCreatingQueue: false,
 	nsfw: true, // Set to false to disable NSFW songs
@@ -88,13 +87,15 @@ require('events').defaultMaxListeners = 100;
 
 client.distube.setMaxListeners(100);
 
-["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler", "autoresume"]
-	.filter(Boolean)
-	.forEach(handler => {
-		require(`./handlers/${handler}`)(client);
-	});
+client.on("ready", () => {
+	["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler", "autoresume"]
+		.filter(Boolean)
+		.forEach(handler => {
+			require(`./handlers/${handler}`)(client);
+		});
 
-const musicHandler = new MusicHandler();
-musicHandler.initialize(client, client.distube);
+	const musicHandler = new MusicHandler();
+	musicHandler.initialize(client, client.distube);
+});
 
 client.login(process.env.TOKEN);

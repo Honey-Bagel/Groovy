@@ -1,8 +1,9 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const filters = require('../../configs/filters.json');
 const Setting = require('../../models/Settings');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "defaultfilter",
@@ -12,43 +13,64 @@ module.exports = {
 	memberpermissions: ["MANAGE_GUILD"],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("defaultfilter")
+		.setDescription("Defines the default filters for the server. Use 'none' to remove all default filters.")
+		.addStringOption(option =>
+			option.setName('filters')
+				.setDescription('List of filters to set as default, or "none" to remove all defaults')
+				.setRequired(false)
+		),
+
 	execute: async (client, message, args) => {
-		try {
-			const { member } = message;
-			const { guild } = member;
+		return executeCommand(client, { message, args });
+	},
 
-			if(args.some(a => !filters[a])) {
-				return message.channel.send({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(ee.wrongcolor)
-							.setTitle(`${client.allEmojis.x} Invalid filter provided`)
-							.setDescription("To define multiple filters, use spaces between them. To remove all filters, use 'none'.")
-							.addFields(
-								{ name: "Available Filters", value: Object.keys(filters).map(f => `\`${f}\``).join(", ") }
-							)
-					],
-				}).then((msg) => {
-					embedThen(guild.id, msg, message);
-				});
-			}
-
-			await Setting.findOneAndUpdate({ _id: guild.id }, { defaultfilters: args }, { upsert: true });
-
-			return message.channel.send({
-				embeds: [
-					new EmbedBuilder()
-						.setColor("Green")
-						.setTitle(`${client.allEmojis.check_mark} ${args.length > 0 ? "The new Default Filters are:" : "All Default Filters have been removed"}`)
-						.setDescription(`${args.length > 0 ? args.map(f => `\`${f}\``).join(", ") : "None"}`)
-				]
-			}).then((msg) => {
-				embedThen(guild.id, msg, message);
-			});
-
-		} catch (err) {
-			console.log(`[ERROR] defaultfilter.js: ${err.stack}`.red);
-			sendErrorMessage(message.channel, "Failed to update the default filters", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+		const parameter = getQuery(context, 'filters');
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+		const { member, guildId, guild } = ctx;
+
+		if (!member.permissions.has("MANAGE_GUILD")) {
+			return sendError(context, "You do not have permission to manage the server settings.");
+		}
+
+		if (parameter === "none") {
+			await Setting.findOneAndUpdate({ _id: guildId }, { defaultfilters: [] }, { upsert: true });
+			return sendFollowUp(context, {
+				embeds: [new EmbedBuilder()
+					.setColor("Green")
+					.setTitle(`${client.allEmojis.check_mark} All Default Filters have been removed`)
+				],
+			});
+		}
+
+		const filtersToSet = parameter.split(" ").filter(f => filters[f]);
+		if (filtersToSet.length === 0) {
+			return sendError(context, "No valid filters provided. Please provide valid filter names.");
+		}
+
+		await Setting.findOneAndUpdate({ _id: guildId }, { defaultfilters: filtersToSet }, { upsert: true });
+
+		return sendFollowUp(context, {
+			embeds: [new EmbedBuilder()
+				.setColor("Green")
+				.setTitle(`${client.allEmojis.check_mark} The new Default Filters are:`)
+				.setDescription(filtersToSet.map(f => `\`${f}\``).join(", "))
+			],
+		});
+	} catch (err) {
+		console.log(`[ERROR] defaultfilter.js: ${err.stack}`.red);
+		return sendError(context, "An error occurred while trying to set the default filters", err.message);
+	}
+}

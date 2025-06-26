@@ -13,8 +13,9 @@ module.exports = (client) => {
 	try {
 		const autoconnect = async () => {
 			let guilds = await getAutoresumes().then((data) => {
-				data.map((guild) => guild._id);
+				return data.map((guild) => guild._id);
 			});
+			console.log(guilds);
 			console.log(`[INFO] Autoresume > All guilds to autoresume: ${guilds ? guilds : "None"}`.blue);
 
 			if(!guilds || guilds.length == 0) return;
@@ -103,7 +104,7 @@ module.exports = (client) => {
 					}
 
 					if(data.filters && data.filters.length > 0) {
-						await newQueue.setFilter(data.filters, true);
+						await newQueue.filters.set(data.filters);
 					}
 
 					await delay(settings["auto-resume-delay"] || 1000);
@@ -112,9 +113,15 @@ module.exports = (client) => {
 			}
 		};
 
-		client.on("ready", () => {
-			setTimeout(() => autoconnect(), 2 * client.ws.ping);
-		});
+		const startLoop = async () => {
+			if(client.isReady()) {
+				setTimeout(() => autoconnect(), 2 * client.ws.ping);
+			} else {
+				setTimeout(() => loop(), 5000); // Retry every 5 seconds if not ready
+			}
+		};
+
+		startLoop();
 	} catch (e) {
 		console.error(`[ERROR] Failed to handle auto resume: ${e.message}`.red);
 	}

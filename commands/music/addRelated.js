@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendResponse, sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "addrelated",
@@ -11,40 +12,51 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("addrelated")
+		.setDescription("Add a similar song to the current song"),
+
 	execute: async (client, message) => {
-		try {
-			const { member, guildId } = message;
-			const { guild } = member;
-			const { channel } = member.voice;
+		return executeCommand(client, { message });
+	},
 
-			hasValidChannel(guild, message, channel);
-			isUserInChannel(message, channel);
-			isQueueValid(client, message);
-
-			let newQueue = client.distube.getQueue(guildId);
-
-			let newEmbed = await message.channel.send({
-				embeds: [ new EmbedBuilder()
-					.setTitle(`🔍 Searching Related Song for... **${newQueue.songs[0].name}**`)
-				]
-			}).catch((e) => {
-				console.log(`[ERROR] addrelated.js: ${e.message}`.red);
-				sendErrorMessage(message.channel, "Failed to send message", e.message);
-			});
-
-			await newQueue.addRelatedSong();
-			await newEmbed.edit({
-				embeds: [ new EmbedBuilder()
-					.setColor("Green")
-					.setTitle(`👍 Added: ** ${ newQueue.songs[newQueue.songs.length - 1].name }`)
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-
-		} catch (err) {
-			console.log(`[ERROR] addrelated.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to add related song", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+
+		const { member, guildId, guild, voiceChannel } = ctx;
+
+		if(!hasValidChannel(context, guild, voiceChannel)) return;
+		if(!isUserInChannel(context, voiceChannel)) return;
+		if(!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+
+		let newEmbed = await sendResponse(context, {
+			embeds: [ new EmbedBuilder()
+				.setTitle(`🔍 Searching Related Song for... **${newQueue.songs[0].name}**`)
+			]
+		});
+
+		await newQueue.addRelatedSong();
+		await sendFollowUp(context, {
+			embeds: [ new EmbedBuilder()
+				.setColor("Green")
+				.setTitle(`👍 Added: ** ${ newQueue.songs[newQueue.songs.length - 1].name }`)
+			]
+		});
+
+	} catch (err) {
+		console.log(`[ERROR] addrelated.js: ${err.stack}`.red);
+		sendError(context, "Failed to add related song", err.message);
+	}
+}

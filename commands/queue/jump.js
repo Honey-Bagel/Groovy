@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "jump",
@@ -11,80 +12,76 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("jump")
+		.setDescription("Jumps to a specific song in the queue")
+		.addIntegerOption(option =>
+			option.setName('number')
+				.setDescription('The position in the queue to jump to (0 is the first song)')
+				.setRequired(true)
+		),
+
 	execute: async (client, message, args) => {
-		const { member, channelId, guildId } = message;
-		const { guild } = member;
-		const { channel } = member.voice;
+		return executeCommand(client, { message, args });
+	},
 
-		hasValidChannel(guild, message, channel);
-		isUserInChannel(message, channel);
-		isQueueValid(client, message);
-
-		try {
-			let newQueue = client.distube.getQueue(guildId);
-			if (!newQueue || newQueue.songs.length === 0) {
-				return message.channel.send({
-					embeds: [new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **No songs in the queue**`)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			if(!args[0]) {
-				return message.channel.send({
-					embeds: [new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **Please add a Position to jump to!**`)
-						.setDescription(`**Usage:**\n> \`${client.settings.get(message.guild.id, "prefix")}jump <position>\``)
-					],
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			let position = Number(args[0]);
-			if(position > newQueue.songs.length - 1 || position < 0) {
-				return message.channel.send({
-					embeds: [new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **Invalid position!**`)
-						.setDescription(`**Please provide a valid position between 1 and ${newQueue.songs.length - 1}.**`)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			await newQueue.jump(position);
-			let posEnd = "";
-			switch(position) {
-			case 1:
-				posEnd = "st";
-				break;
-			case 2:
-				posEnd = "nd";
-				break;
-			case 3:
-				posEnd = "rd";
-				break;
-			default:
-				posEnd = `th`;
-			};
-
-			return message.channel.send({
-				embeds: [new EmbedBuilder()
-					.setColor("Green")
-					.setTitle(`⏭️ | Jumped to the **${position}${posEnd}** song in the queue`)
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-		} catch (err) {
-			console.log(`[ERROR] jump.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to jump to the specified song", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+
+		const parameter = getQuery(context, 'number');
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+
+		const { member, guildId, guild, voiceChannel } = ctx;
+
+		if (!hasValidChannel(context, guild, voiceChannel)) return;
+		if (!isUserInChannel(context, voiceChannel)) return;
+		if (!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+
+		if(!parameter) {
+			return sendError(context, "Please provide a position to jump to!", `**Usage:**\n> \`/jump <position>\``);
+		}
+
+		let position = Number(parameter);
+		if(position > newQueue.songs.length - 1 || position < 0) {
+			return sendError(context, "Invalid position!", `**Please provide a valid position between 1 and ${newQueue.songs.length - 1}.**`);
+		}
+
+		await newQueue.jump(position);
+
+		let posEnd = "";
+		switch(position) {
+		case 1:
+			posEnd = "st";
+			break;
+		case 2:
+			posEnd = "nd";
+			break;
+		case 3:
+			posEnd = "rd";
+			break;
+		default:
+			posEnd = `th`;
+		};
+
+		const embed = new EmbedBuilder()
+			.setColor("Green")
+			.setTitle(`⏭️ | Jumped to the **${position}${posEnd}** song in the queue`);
+
+		return sendFollowUp(context, { embeds: [ embed ] });
+
+	} catch (err) {
+		console.log(`[ERROR] jump.js: ${err.stack}`.red);
+		sendError(context, "Failed to jump to the specified song", err.message);
+	}
+}

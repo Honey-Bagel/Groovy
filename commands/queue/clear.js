@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "clear",
@@ -11,43 +12,46 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("clear")
+		.setDescription("Clears the current queue of songs (Does not leave the channel)"),
+
 	execute: async (client, message) => {
-		const { member, channelId, guildId } = message;
-		const { guild } = member;
-		const { channel } = member.voice;
+		return executeCommand(client, { message });
+	},
 
-		hasValidChannel(guild, message, channel);
-		isUserInChannel(message, channel);
-		isQueueValid(client, message);
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
+	}
+};
 
-		try {
-			let newQueue = client.distube.getQueue(guildId);
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
 
-			if (!newQueue || newQueue.songs.length === 0) {
-				return message.channel.send({
-					embeds: [new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **No songs in the queue to clear**`)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
+		await deferResponse(context);
 
-			let amount = newQueue.songs.length - 2;
-			newQueue.songs = [newQueue.songs[0]];
+		const ctx = createContextWrapper(context);
 
-			return message.channel.send({
-				embeds: [new EmbedBuilder()
-					.setColor("Green")
-					.setTitle(`🗑️ | Cleared ${amount} song(s) from the queue`)
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-		} catch (err) {
-			console.log(`[ERROR] clear.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to clear the queue", err.message);
-		}
+		const { member, guildId, guild, voiceChannel } = ctx;
+
+		if (!hasValidChannel(context, guild, voiceChannel)) return;
+		if (!isUserInChannel(context, voiceChannel)) return;
+		if (!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+
+		let amount = newQueue.songs.length - 1;
+		newQueue.songs = [newQueue.songs[0]];
+
+		return sendFollowUp(context, {
+			embeds: [ new EmbedBuilder()
+				.setColor("Green")
+				.setTitle(`🗑️ | Cleared ${amount} song(s) from the queue`)
+			]
+		});
+	} catch (err) {
+		console.log(`[ERROR] clear.js: ${err.stack}`.red);
+		sendError(context, "Failed to clear the queue", err.message);
 	}
 };

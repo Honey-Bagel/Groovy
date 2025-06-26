@@ -6,8 +6,9 @@ const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: Events.ERROR,
-	execute: (e, queue, song) => {
+	execute: (e, queue) => {
 		try {
+			console.log('testing'.yellow);
 			sendErrorMessage(queue.textChannel, "{DISTUBE} An error occured", e.message);
 			console.log(`[ERROR] {Events} An error occured: ${e.message}`.red);
 

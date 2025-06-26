@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder, Embed } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "stop",
@@ -11,27 +12,43 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("stop")
+		.setDescription("stops the current song and clears the queue"),
 	execute: async (client, message) => {
-		try {
-			const queue = client.distube.getQueue(message);
-			const { channel } = message.member.voice;
-			hasValidChannel(message.guild, message, channel);
-			isUserInChannel(message, channel);
-			isQueueValid(client, message);
+		return executeCommand(client, { message });
+	},
 
-			queue.stop();
-
-			return message.channel.send({
-				embeds: [ new EmbedBuilder()
-					.setColor("Green")
-					.setTitle("⏹ | Ended the queue")
-				]
-			}).then((msg) => {
-				embedThen(message.guildId, msg, message);
-			});
-		} catch (err) {
-			console.log(`[ERROR] stop.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to stop the queue", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+
+		const { voiceChannel, guild, message } = ctx;
+
+		const queue = client.distube.getQueue(guild.id);
+
+		if(!hasValidChannel(context, guild, voiceChannel)) return;
+		if(!isUserInChannel(context, voiceChannel)) return;
+		if(!isQueueValid(context, client, guild.id)) return;
+
+		queue.stop();
+
+		const embed = new EmbedBuilder()
+			.setColor("Green")
+			.setTitle("⏹ | Ended the queue");
+
+		sendFollowUp(context, { embeds: [ embed ] });
+	} catch (err) {
+		console.log(`[ERROR] stop.js: ${err.stack}`.red);
+		sendErrorMessage(context.channel, "Failed to stop the queue", err.message);
+	}
+}

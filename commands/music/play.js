@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, SlashCommandBuilder } = require("discord.js");
 const ee = require("../../configs/embed.json");
 const { hasValidChannel, isChannelFull, isUserInChannel, getAudioStream, isYTLink } = require("../../handlers/functions.js");
 const { embedThen, sendErrorMessage } = require("../../handlers/functions.js");
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "play",
@@ -11,56 +12,63 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("play")
+		.setDescription("Plays a song either from a link or a search term")
+		.addStringOption(option =>
+			option.setName('song')
+				.setDescription('The search term or link of the song you want to play')
+				.setRequired(true)
+		),
 	execute: async (client, message, args) => {
-		try {
-			const { member, channelId, guildId } = message;
-			const { guild } = member;
-			const { channel } = member.voice;
+		return executeCommand(client, { message, args });
+	},
 
-			hasValidChannel(client, message, channel);
-			isChannelFull(message, channel);
-			isUserInChannel(message, channel);
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
+	}
+};
 
-			if(!args[0]) {
-				return message.channel.send({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(ee.wrongcolor)
-							.setTitle(`${client.allEmojis.x} **Please provide a Query**`)
-							.setDescription(`**Usage:**\n> \`${client.settings.get(message.guild.id, "prefix")}play <Search/Link>\``)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
 
-			const Text = args.join(" ");
-			try {
-				const queue = client.distube.getQueue(guildId);
-				let options = {
-					member: member,
-				};
-				if(!queue) {
-					options.textChannel = guild.channels.cache.get(channelId);
-				}
-				client.distube.play(channel, Text, options);
-			} catch(err) {
-				console.log(err.stack ? err.stack : e);
-				message.channel.send({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(ee.wrongcolor)
-							.setFooter(ee.footertext, ee.footericon)
-							.setTitle(`${client.allEmojis.x} **An error occurred while trying to play the song!**`)
-							.setDescription(`\`\`\`${err.message}\`\`\``)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-		} catch (err) {
-			console.error(`[ERROR] Failed to play song: ${err.stack}`.red);
-			sendErrorMessage(message.channel, "Failed to play the song", err.message);
+		const parameter = getQuery(context, 'song');
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+
+		const { member, channelId, guildId, voiceChannel, guild } = ctx;
+
+		if(!hasValidChannel(context, guild, voiceChannel)) return;
+		if(!isChannelFull(context, voiceChannel)) return;
+		if(!isUserInChannel(context, voiceChannel)) return;
+
+		if(!parameter) {
+			sendError(context, "Please provide a query", `**Usage:**\n> \`${client.settings.get(message.guild.id, "prefix")}play <Search/Link>\``, client);
+			return;
 		}
+
+		const Text = parameter;
+		try {
+			const queue = client.distube.getQueue(guildId);
+			let options = {
+				member: member,
+			};
+			if(!queue) {
+				options.textChannel = guild.channels.cache.get(channelId);
+			}
+
+			sendFollowUp(context, { content: `🔍 Searching for: \`${Text}\`...` });
+			client.distube.play(voiceChannel, Text, options);
+		} catch(err) {
+			console.log(err.stack ? err.stack : e);
+			sendError(context, "An error occurred while trying to play the song", err.message, client);
+		}
+		return;
+	} catch (error) {
+		console.error(`[ERROR] play.js ${error.stack}`.red);
+		return sendError(context, "Failed to play song", error.message);
 	}
 };

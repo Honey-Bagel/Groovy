@@ -6,6 +6,7 @@ const path = require("path");
 const Setting = require("../models/Settings");
 const ee = require("../configs/embed.json");
 const emojis = require("../configs/emojis.json");
+const { sendResponse, sendError } = require("../utils/commandUtils.js");
 
 module.exports.change_status = change_status;
 module.exports.isChannelFull = isChannelFull;
@@ -63,51 +64,53 @@ function replacedefaultmessages(text, o = {}) {
 		.replace(/%{error}%/gi, options && options.error ? options.error : "%{error}%");
 }
 
-function hasValidChannel(guild, message, channel) {
+function hasValidChannel(context, guild, channel) {
 	if(!channel) {
-		return message.channel.send({
-			embeds: [ new EmbedBuilder()
-				.setColor(ee.wrongcolor)
-				.setTitle(`${emojis.x} **Please join ${guild.members.me.voice.channel ? "__my__" : "a"} VoiceChannel First.**`)
-			]
-		});
-	}
+		const embed = new EmbedBuilder()
+			.setColor(ee.wrongcolor)
+			.setTitle(`${emojis.x} **Please join ${guild.members.me.voice.channel ? "__my__" : "a"} VoiceChannel First.**`);
+
+		sendResponse(context, { embeds: [ embed ] });
+		return false;
+	};
+	return true;
 }
 
-function isChannelFull(message, channel) {
+function isChannelFull(context, channel) {
 	if (channel.userLimit != 0 && channel.full) {
-		return message.channel.send({
-			embeds: [new MessageEmbed()
-   	     .setColor(ee.wrongcolor)
-    	    .setFooter(ee.footertext, ee.footericon)
-   	     .setTitle(`${emojis.x} Your Voice Channel is full, I can't join!`)
-   	   ],
- 	   });
+	   const embed = new EmbedBuilder()
+	   		.setColor(ee.wrongcolor)
+			.setTitle(`${emojis.x} Your Voice Channel is full, I can't join!`);
+
+		sendResponse(context, { embeds: [ embed ] });
+		return false;
 	}
+	return true;
 }
 
-function isUserInChannel(message, channel) {
+function isUserInChannel(context, channel) {
   	if (channel.guild.members.me.voice.channel && channel.guild.members.me.voice.channel.id != channel.id) {
-		return message.channel.send({
-			embeds: [new EmbedBuilder()
-				.setColor(ee.wrongcolor)
-				.setFooter(ee.footertext, ee.footericon)
-				.setTitle(`${emojis.x} I am already connected somewhere else`)
-			],
-		});
+		const embed = new EmbedBuilder()
+			.setColor(ee.wrongcolor)
+			.setTitle(`${emojis.x} I am already connected somewhere else`);
+
+		sendResponse(context, { embeds: [ embed ] });
+		return false;
 	}
+	return true;
 }
 
-function isQueueValid(client, message) {
-	if(!client.distube.getQueue(message)) {
-		return message.channel.send({
-			embeds: [new EmbedBuilder()
-				.setColor(ee.wrongcolor)
-				.setTitle(`❌ ERROR | I am not playing Something`)
-				.setDescription(`The Queue is empty`)
-			]
-		});
+function isQueueValid(context, client, guildId) {
+	if(!client.distube.getQueue(guildId)) {
+		const embed = new EmbedBuilder()
+			.setColor(ee.wrongcolor)
+			.setTitle(`❌ ERROR | I am not playing Something`)
+			.setDescription(`The queue is empty`);
+
+		sendResponse(context, { embeds: [ embed ] });
+		return false;
 	}
+	return true;
 }
 
 function sendErrorMessage(channel, title, message) {

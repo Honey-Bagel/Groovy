@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "previous",
@@ -11,43 +12,47 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("previous")
+		.setDescription("Plays the last song that was played in the queue"),
+
 	execute: async (client, message) => {
-		const { member, channelId, guildId } = message;
-		const { guild } = member;
-		const { channel } = member.voice;
+		return executeCommand(client, { message });
+	},
 
-		hasValidChannel(guild, message, channel);
-		isUserInChannel(message, channel);
-		isQueueValid(client, message);
-
-		try {
-			let newQueue = client.distube.getQueue(guildId);
-
-			if(!newQueue || !newQueue.previousSongs || newQueue.previousSongs.length == 0) {
-				await newQueue.stop();
-				return message.channel.send({
-					embeds: [ new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **No previous songs found**`)
-					]
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			await newQueue.previous();
-			return message.channel.send({
-				embeds: [ new EmbedBuilder()
-					.setColor("Green")
-					.setTitle("⏮ | Playing the previous song")
-					.setFooter({ text: `Action by: ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-		} catch (err) {
-			console.log(`[ERROR] previous.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to play the previous song", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+		const { member, channelId, guildId, voiceChannel, guild } = ctx;
+
+		if (!hasValidChannel(context, guild, voiceChannel)) return;
+		if (!isUserInChannel(context, voiceChannel)) return;
+		if (!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+
+		if (!newQueue || !newQueue.previousSongs || newQueue.previousSongs.length === 0) {
+			return sendError(context, "No previous songs found", "There are no previous songs to play.");
+		}
+
+		await newQueue.previous();
+		sendFollowUp(context, {
+			embeds: [new EmbedBuilder()
+				.setColor("Green")
+				.setTitle("⏮ | Playing Previous Song")
+			]
+		});
+	} catch (err) {
+		console.error(`[ERROR] previous.js: ${err.stack}`.red);
+		sendError(context, "An error occurred while executing the command", err.message);
+	}
+}

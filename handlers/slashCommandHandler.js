@@ -34,7 +34,7 @@ module.exports = (client) => {
 			registerSlashCommands(client, slashCommandsData);
 		}
 	} catch (e) {
-		console.error(`[ERROR] Slash Command Handler: ${e.message}`.red);
+		console.error(`[ERROR] Slash Command Handler: ${e.stack}`.red);
 	}
 };
 
@@ -44,12 +44,31 @@ async function registerSlashCommands(client, commandsData) {
 
 		console.log('[INFO] Started refreshing application (/) commands.'.yellow);
 
-		await rest.put(
-			Routes.applicationCommands(client.user.id),
-			{ body: commandsData }
-		);
+		const guildId = '694361707476287540';
 
-		console.log('[INFO] Successfully reloaded application (/) commands.'.green);
+		if(process.env.NODE_ENV === 'development' && guildId) {
+			const commands = [];
+			for(const command of commandsData) {
+				if(commands.includes(command.name)) {
+					console.log(`[WARNING] Duplicate command name found: ${command.name}`.yellow);
+					continue;
+				}
+				commands.push(command.name);
+			}
+			await rest.put(
+				Routes.applicationGuildCommands(client.user.id, guildId),
+				{ body: commandsData }
+			);
+			console.log('[INFO] Successfully reloaded guild (/) commands.'.green);
+		} else {
+			await rest.put(
+				Routes.applicationCommands(client.user.id),
+				{ body: commandsData }
+			);
+
+			console.log('[INFO] Successfully reloaded global (/) commands.'.green);
+		}
+
 	} catch (error) {
 		console.error('[ERROR] Failed to register slash commands:'.red, error);
 	}

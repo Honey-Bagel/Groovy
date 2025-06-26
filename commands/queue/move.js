@@ -1,7 +1,8 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
+const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
 
 module.exports = {
 	name: "move",
@@ -11,61 +12,61 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	data: new SlashCommandBuilder()
+		.setName("move")
+		.setDescription("Moves a song from one position to another in the queue")
+		.addIntegerOption(option =>
+			option.setName('from')
+				.setDescription('The position of the song to move from')
+				.setRequired(true)
+		)
+		.addIntegerOption(option =>
+			option.setName('to')
+				.setDescription('The position to move the song to')
+				.setRequired(true)
+		),
 	execute: async (client, message, args) => {
-		const { member, channelId, guildId } = message;
-		const { guild } = member;
-		const { channel } = member.voice;
+		return executeCommand(client, { message, args });
+	},
 
-		hasValidChannel(guild, message, channel);
-		isUserInChannel(message, channel);
-		isQueueValid(client, message);
-
-		try {
-			let newQueue = client.distube.getQueue(guildId);
-
-			if(!args[0] || !args[1]) {
-				return message.channel.send({
-					embeds: [new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **Please provide both positions to move the song!**`)
-						.setDescription(`**Usage:**\n> \`${client.settings.get(message.guild.id, "prefix")}move <from> <to>\``)
-					],
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			let from = Number(args[0]);
-			let to = Number(args[1]);
-
-			if(from > newQueue.songs.length || from < 1 || to > newQueue.songs.length || to < 1 || from === to) {
-				return message.channel.send({
-					embeds: [new EmbedBuilder()
-						.setColor(ee.wrongcolor)
-						.setTitle(`${client.allEmojis.x} **Invalid positions provided!**`)
-						.setDescription(`**Valid range:** 1 - ${newQueue.songs.length}`)
-					],
-				}).then((msg) => {
-					embedThen(guildId, msg, message);
-				});
-			}
-
-			let song = newQueue.songs[from];
-			newQueue.songs[from] = newQueue.songs[to];
-			newQueue.songs[to] = song;
-
-			return message.channel.send({
-				embeds: [new EmbedBuilder()
-					.setColor("Green")
-					.setTitle(`🔄 | Moved song from position ${from} to ${to}`)
-					.setDescription(`**Moved:** \`${song.name}\` by \`${song.uploader.name}\``)
-				]
-			}).then((msg) => {
-				embedThen(guildId, msg, message);
-			});
-		} catch (err) {
-			console.log(`[ERROR] move.js: ${err.message}`.red);
-			sendErrorMessage(message.channel, "Failed to move the song in the queue", err.message);
-		}
+	executeSlash: async (client, interaction) => {
+		return executeCommand(client, { interaction });
 	}
 };
+
+async function executeCommand(client, context) {
+	try {
+		const isSlash = isSlashCommand(context);
+		await deferResponse(context);
+
+		const ctx = createContextWrapper(context);
+		const { member, channelId, guildId, voiceChannel, guild } = ctx;
+
+		if (!hasValidChannel(context, guild, voiceChannel)) return;
+		if (!isUserInChannel(context, voiceChannel)) return;
+		if (!isQueueValid(context, client, guildId)) return;
+
+		let newQueue = client.distube.getQueue(guildId);
+		let from = parseInt(getQuery(context, 'from'));
+		let to = parseInt(getQuery(context, 'to'));
+
+		if (isNaN(from) || isNaN(to) || from < 1 || to < 1 || from > newQueue.songs.length || to > newQueue.songs.length || from === to) {
+			return sendError(context, "Invalid positions", `**Usage:**\n> \`${client.settings.get(guildId, "prefix")}move <from> <to>\`\n**Valid range:** 1 - ${newQueue.songs.length}`);
+		}
+
+		let song = newQueue.songs[from];
+		newQueue.songs[from] = newQueue.songs[to];
+		newQueue.songs[to] = song;
+
+		return sendFollowUp(context, {
+			content: `🔄 | Moved song from position ${from} to ${to}`,
+			embeds: [new EmbedBuilder()
+				.setColor("Green")
+				.setDescription(`**Moved:** \`${song.name}\` by \`${song.uploader.name}\``)
+			]
+		});
+	} catch (err) {
+		console.error(`[ERROR] move.js: ${err.stack}`.red);
+		return sendError(context, "Failed to move song", err.message);
+	}
+}

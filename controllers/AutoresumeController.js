@@ -30,3 +30,4 @@ module.exports.getAutoresume = getAutoresume;
 module.exports.createAutoresume = createAutoresume;
 module.exports.deleteAutoresume = deleteAutoresume;
 module.exports.updateAutoresume = updateAutoresume;
+module.exports.autoresumeExists = autoresumeExists;
