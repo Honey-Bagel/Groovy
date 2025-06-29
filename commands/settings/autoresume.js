@@ -9,7 +9,7 @@ module.exports = {
 	usage: "autoresume [true/false]",
 	aliases: ["aresume"],
 	description: "Enable or disable auto-resume setting for the server",
-	memberpermissions: ["MANAGE_GUILD"],
+	memberpermissions: ["ManageGuild"],
 	requiredroles: [],
 	alloweduserids: [],
 	data: new SlashCommandBuilder()
@@ -32,16 +32,12 @@ module.exports = {
 async function executeCommand(client, context) {
 	try {
 		const isSlash = isSlashCommand(context);
-		const parameter = getQuery(context, 'autoresume');
+		let parameter = getQuery(context, 'autoresume');
 
 		await deferResponse(context);
 
 		const ctx = createContextWrapper(context);
 		const { member, guildId, guild } = ctx;
-
-		if (!member.permissions.has("MANAGE_GUILD")) {
-			return sendError(context, "You do not have permission to manage the server settings.");
-		}
 
 		const prevValue = await Setting.findOne({ _id: guildId }).then((data) => data.autoresume);
 
@@ -54,6 +50,7 @@ async function executeCommand(client, context) {
 				],
 			});
 		} else {
+			parameter = parameter.trim();
 			if (parameter.toLowerCase() === "true" || parameter.toLowerCase() === "false") {
 				const newValue = parameter.toLowerCase() === "true";
 				if (newValue !== prevValue) {
@@ -64,9 +61,16 @@ async function executeCommand(client, context) {
 							.setTitle(`${client.allEmojis.check_mark} Auto-resume is now ${newValue ? "enabled" : "disabled"}`)
 						],
 					});
+				} else {
+					return sendFollowUp(context, {
+						embeds: [new EmbedBuilder()
+							.setColor("Green")
+							.setTitle(`${client.allEmojis.check_mark} Auto-resume is already ${newValue ? "enabled" : "disabled"}`)
+						]
+					});
 				}
 			}
-			return sendError(context, "Invalid parameter. Use `true` or `false` to set the auto-resume option.");
+			return sendError(context, "Invalid parameter.", "Use `true` or `false` to set the auto-resume option.");
 		}
 	} catch (err) {
 		console.log(`[ERROR] autoresume.js: ${err.stack}`.red);

@@ -10,7 +10,7 @@ module.exports = {
 	usage: "defaultfilter <filter1 filter2 ...>",
 	aliases: ["dfilter"],
 	description: "Defines the default filters for the server. Use 'none' to remove all default filters.",
-	memberpermissions: ["MANAGE_GUILD"],
+	memberpermissions: ["ManageGuild"],
 	requiredroles: [],
 	alloweduserids: [],
 	data: new SlashCommandBuilder()
@@ -40,10 +40,6 @@ async function executeCommand(client, context) {
 
 		const ctx = createContextWrapper(context);
 		const { member, guildId, guild } = ctx;
-
-		if (!member.permissions.has("MANAGE_GUILD")) {
-			return sendError(context, "You do not have permission to manage the server settings.");
-		}
 
 		if (parameter === "none") {
 			await Setting.findOneAndUpdate({ _id: guildId }, { defaultfilters: [] }, { upsert: true });

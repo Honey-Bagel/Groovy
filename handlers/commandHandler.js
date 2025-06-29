@@ -6,6 +6,7 @@ module.exports = (client) => {
 	try {
 		let amount = 0;
 		const commandFolders = fs.readdirSync('./commands');
+		const disabledCommands = [];
 
 		for (const folder of commandFolders) {
 			const commandsPath = path.join(`./commands/${folder}/`);
@@ -16,6 +17,10 @@ module.exports = (client) => {
 				if(!command) continue;
 
 				if(command.name) {
+					if(command.disabled) {
+						disabledCommands.push(command.name);
+						continue;
+					}
 					command.category = folder;
 					client.commands.set(command.name, command);
 					amount++;
@@ -31,6 +36,9 @@ module.exports = (client) => {
 			}
 		}
 		console.log(`[INFO] Loaded ${amount} commands`.blue);
+		if(disabledCommands.length > 0) {
+			console.log(`[INFO] Disabled commands: ${disabledCommands.join(', ')}`.yellow);
+		}
 	} catch (e) {
 		console.error(`${e.message}`.red);
 	}

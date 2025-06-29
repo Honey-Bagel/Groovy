@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "shuffle",
@@ -45,6 +47,8 @@ async function executeCommand(client, context) {
 		const responseEmbed = new EmbedBuilder()
 			.setColor("Green")
 			.setTitle(`🔀 | Shuffled ${newQueue.songs.length} songs`);
+
+		musicHandler.updateQueueMessage(guildId, newQueue);
 
 		return await sendFollowUp(context, { embeds: [responseEmbed] });
 	} catch (err) {

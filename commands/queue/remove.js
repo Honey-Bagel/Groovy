@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "remove",
@@ -70,6 +72,8 @@ async function executeCommnad(client, context) {
 		}
 
 		newQueue.songs.splice(position, amount);
+
+		await musicHandler.updateQueueMessage(guildId, newQueue);
 
 		return sendFollowUp(context, {
 			embeds: [new EmbedBuilder()

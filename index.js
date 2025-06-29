@@ -52,7 +52,6 @@ if(config.spotify_api.enabled) {
 }
 
 // Initialize distube client
-
 client.distube = new DisTube(client, {
 	emitNewSongOnly: false,
 	savePreviousSongs: true,
@@ -61,7 +60,7 @@ client.distube = new DisTube(client, {
 	customFilters: filters,
 	plugins: [
 		new SpotifyPlugin(spotifyOptions),
-		new YouTubePlugin(), // prolly need to add cookie
+		new YouTubePlugin({ cookies: JSON.parse(process.env.YT_COOKIES) }), // prolly need to add cookie
 		new DirectLinkPlugin(),
 		new AppleMusicPlugin(),
 		new YtDlpPlugin({
@@ -87,8 +86,10 @@ require('events').defaultMaxListeners = 100;
 
 client.distube.setMaxListeners(100);
 
+require("./handlers/eventHandler")(client);
+
 client.on("ready", () => {
-	["eventHandler", "commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler", "autoresume"]
+	["commandHandler", "slashCommandHandler", settings.antiCrash ? "antiCrash" : null, "distubeEvents", "dbHandler", "autoresume"]
 		.filter(Boolean)
 		.forEach(handler => {
 			require(`./handlers/${handler}`)(client);

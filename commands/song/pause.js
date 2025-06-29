@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "pause",
@@ -60,8 +62,10 @@ async function executeCommand(client, context) {
 				.setTitle("⏸ | Paused the song")
 			]
 		});
+
+		musicHandler.updateNowPlayingMessage(guildId, newQueue.songs[0], newQueue);
 	} catch (err) {
 		console.log(`[ERROR] pause.js: ${err.stack}`.red);
 		sendError(context, "An error occurred while trying to pause the song", err.message);
 	}
-}
+};

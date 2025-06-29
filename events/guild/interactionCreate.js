@@ -1,6 +1,7 @@
 const { Events } = require('discord.js');
 const MusicHandler = require("../../handlers/musicHandler.js");
 const musicHandler = MusicHandler.getInstance();
+const { sendError } = require('../../utils/commandUtils.js');
 
 module.exports = {
 	name: Events.InteractionCreate,
@@ -17,6 +18,10 @@ module.exports = {
 			if (!command) {
 				console.error(`[ERROR] No slash command matching ${interaction.commandName} was found.`.red);
 				return;
+			}
+
+			if(command.memberpermissions && command.memberpermissions.length > 0 && !interaction.member.permissions.has(command.memberpermissions)) {
+				return sendError({ interaction }, "You do not have permission to use this command.", `**Required Permissions:**\n> \`${command.memberpermissions.join(', ')}\``);
 			}
 
 			try {

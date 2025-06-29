@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "clear",
@@ -39,10 +41,12 @@ async function executeCommand(client, context) {
 		if (!isUserInChannel(context, voiceChannel)) return;
 		if (!isQueueValid(context, client, guildId)) return;
 
-		let newQueue = client.distube.getQueue(guildId);
+		let newQueue = await client.distube.getQueue(guildId);
 
 		let amount = newQueue.songs.length - 1;
 		newQueue.songs = [newQueue.songs[0]];
+
+		musicHandler.updateQueueMessage(guildId, newQueue);
 
 		return sendFollowUp(context, {
 			embeds: [ new EmbedBuilder()

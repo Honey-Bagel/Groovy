@@ -83,7 +83,8 @@ module.exports = (client) => {
 					const songURLS = tracks.map((track) => track.url);
 					const playlist = await distube.createCustomPlaylist(songURLS, {
 						member: client.member,
-						properties: { name: "Autoresume-Playlist", source: "custom" },
+						name: "Autoresume Playlist",
+						source: "custom",
 						parallel: true
 					});
 					await distube.play(voiceChannel, playlist, {
@@ -91,11 +92,11 @@ module.exports = (client) => {
 					});
 					let newQueue = client.distube.getQueue(guild.id);
 
+					await newQueue.seek(data.currentTime);
+
 					if(!data.playing) {
 						await newQueue.pause();
 					}
-
-					await newQueue.seek(data.currentTime);
 
 					await newQueue.setVolume(data.volume);
 

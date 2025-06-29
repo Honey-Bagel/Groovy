@@ -9,7 +9,7 @@ module.exports = {
 	usage: "autoplay [true/false]",
 	aliases: ["dautoplay"],
 	description: "Enable or disable the default autoplay setting for the server",
-	memberpermissions: ["MANAGE_GUILD"],
+	memberpermissions: ["ManageGuild"],
 	requiredroles: [],
 	alloweduserids: [],
 	data: new SlashCommandBuilder()
@@ -38,10 +38,6 @@ async function executeCommand(client, context) {
 
 		const ctx = createContextWrapper(context);
 		const { member, guildId, guild } = ctx;
-
-		if (!member.permissions.has("MANAGE_GUILD")) {
-			return sendError(context, "You do not have permission to manage the server settings.");
-		}
 
 		const prevValue = await Setting.findOne({ _id: guildId }).then((data) => data.defaultautoplay);
 

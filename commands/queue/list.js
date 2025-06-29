@@ -10,13 +10,13 @@ module.exports = {
 	name: "list",
 	usage: "list",
 	aliases: ["queue", "q", "songs", "queuelist"],
-	description: "Displays the current song queue",
+	description: "Displays the current song queue | Closes the queue list if it is open",
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
 	data: new SlashCommandBuilder()
 		.setName("list")
-		.setDescription("Displays the current song queue"),
+		.setDescription("Displays the current song queue | Closes the queue list if it is open"),
 
 	execute: async (client, message) => {
 		return executeCommand(client, { message });
@@ -45,7 +45,33 @@ async function executeCommand(client, context) {
 
 		await sendFollowUp(context, { content: "Retrieving queue data..." }, 1);
 
-		return musicHandler.updateQueueMessage(guildId, newQueue);
+		const { queueListOpen, queueMessage } = await musicHandler.getGuildData(guildId);
+
+		await musicHandler.updateGuildData(guildId, {
+			queueListOpen: !queueListOpen,
+		});
+
+		if(queueListOpen) {
+			if(queueMessage) {
+				await queueMessage.delete().catch(() => {
+					/* Ignore */
+				});
+				await musicHandler.updateGuildData(guildId, {
+					queueMessage: null,
+					queuePage: 0
+				});
+			}
+			return sendFollowUp(context, {
+				embeds: [new EmbedBuilder()
+					.setColor(ee.color)
+					.setDescription("The queue list has been closed.")
+				]
+			});
+		} else {
+			await musicHandler.updateQueueMessage(guildId, newQueue);
+		}
+
+		return;
 	} catch (err) {
 		console.log(`[ERROR] list.js: ${err.stack}`.red);
 		sendError(context, "Failed to retrieve the song queue", err.message);

@@ -33,6 +33,7 @@ module.exports = {
 
 		let command = client.commands.get(cmd);
 		if(!command) command = client.commands.get(client.aliases.get(cmd));
+		if(!command) return;
 
 		if(message.content.indexOf(" ") == 1) {
 			return;

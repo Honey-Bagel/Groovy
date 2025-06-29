@@ -33,6 +33,7 @@ class MusicHandler {
 				queueMessage: null,
 				textChannel: null,
 				queuePage: 0,
+				queueListOpen: false,
 			});
 		}
 		return this.guildData.get(guildId);
@@ -65,6 +66,7 @@ class MusicHandler {
 	createNowPlayingEmbed(track, queue, color = null) {
 		const embed = new EmbedBuilder()
 			.setColor(color ? color : "Random")
+			.setThumbnail(track.source === 'spotify' ? track.stream?.song?.thumbnail : track.thumbnail)
 			//.setDescription(`See the [Queue on the **Dashboard** Live!](${require('../dashboard/settings.json').website.domain}/queue/${queue.id})`)
 			.setDescription(`See the Queue on the **Dashboard** Live! _disabled_`)
 			.addFields({ name: `💡 Requested by:`, value: `>>> ${track.user}`, inline: true },
@@ -78,8 +80,8 @@ class MusicHandler {
 			)
 			.setAuthor({
 				name: `${track.name}`,
-				iconURL: `https://images-ext-1.discordapp.net/external/DkPCBVBHBDJC8xHHCF2G7-rJXnTwj_qs78udThL8Cy0/%3Fv%3D1/https/cdn.discordapp.com/emojis/859459305152708630.gif`,
-				url: track.url
+				iconURL: queue.isPaused() ? `https://cdn.discordapp.com/emojis/859459305152708630.png` : `https://images-ext-1.discordapp.net/external/DkPCBVBHBDJC8xHHCF2G7-rJXnTwj_qs78udThL8Cy0/%3Fv%3D1/https/cdn.discordapp.com/emojis/859459305152708630.gif`,
+				url: track.stream?.song?.url || track.url
 			})
 			.setFooter({
 				text: `${track.user.tag}`,
@@ -109,31 +111,25 @@ class MusicHandler {
 
 		// Show current song (always visible)
 		const current = queue.songs[0];
-		embed.addFields({
-			name: '🎵 Currently Playing',
-			value: `**[${current.name}](${current.url})**\n` +
-                   `Duration: ${current.formattedDuration} | Requested by: ${current.user?.displayName || current.user?.username}`,
-			inline: false
-		});
 
 		// Show upcoming songs for current page
 		const startIdx = 1 + (page * songsPerPage); // +1 to skip current song
 		const endIdx = Math.min(startIdx + songsPerPage, queue.songs.length);
 		const songsOnPage = queue.songs.slice(startIdx, endIdx);
 
-		if (songsOnPage.length > 0) {
-			const upcomingList = songsOnPage.map((song, index) => {
-				const position = startIdx + index;
-				return `${position}. **[${song.name}](${song.url})**\n` +
-                       `Duration: ${song.formattedDuration} | Requested by: ${song.user?.displayName || song.user?.username}`;
-			}).join('\n\n');
+		let queueDescription = `🎵 **Currently Playing**\n**[${current.name}](${current.url})**\nDuration: ${current.formattedDuration} | Requested by: ${current.user?.displayName || current.user?.username}\n`;
 
-			const pageInfo = totalPages > 1 ? ` (Page ${page + 1}/${totalPages})` : '';
-			embed.addFields({
-				name: `📝 Up Next${pageInfo}`,
-				value: upcomingList.length > 1024 ? upcomingList.substring(0, 1021) + '...' : upcomingList,
-				inline: false
+		if (songsOnPage.length > 0) {
+			queueDescription += `📝 **Up Next Page ${page + 1}/${totalPages}**\n`;
+			songsOnPage.forEach((song, index) => {
+				const position = startIdx + index;
+				const songTitle = song.name.length > 50 ? song.name.substring(0, 47) + '...' : song.name;
+
+				queueDescription += `${position}. **[${songTitle}](${song.url})**\n` +
+					`Duration: ${song.formattedDuration} | Requested by: ${song.user?.displayName || song.user?.username}\n`;
 			});
+
+			embed.setDescription(queueDescription);
 		} else if (totalPages > 1) {
 			embed.addFields({
 				name: `📝 Up Next (Page ${page + 1}/${totalPages})`,
@@ -170,13 +166,21 @@ class MusicHandler {
 				this.updateGuildData(guildId, { nowPlayingMessage: message });
 			}
 		} catch (error) {
+			this.updateGuildData(guildId, { nowPlayingMessage: null });
+			// If the message edit fails, we log the error and reset the now playing message
+			// This is important to avoid memory leaks and stale messages
 			console.error(`[ERROR] Failed to update now playing message: ${error.stack}`.red);
 		}
 	}
 
-	async updateQueueMessage(guildId, queue, page = 0) {
+	async updateQueueMessage(guildId, queue, page = -1) {
 		const guildData = this.getGuildData(guildId);
 		if(!guildData.textChannel) return;
+		if(!guildData.queueListOpen) return; // Don't update if queue list is closed
+
+		if(page === -1 && (guildData.queuePage != null || guildData.queuePage != undefined)) {
+			page = guildData.queuePage;
+		}
 
 		const { embed, totalPages, currentPage } = this.createQueueEmbed(queue, page);
 
@@ -194,6 +198,8 @@ class MusicHandler {
 				this.updateGuildData(guildId, { queueMessage: message, queuePage: page });
 			}
 		} catch (error) {
+			this.updateGuildData(guildId, { queueMessage: null });
+			// If the message edit fails, we log the error and reset the queue message
 			console.error(`[ERROR] Failed to update queue message: ${error.stack}`.red);
 		}
 	}
@@ -264,6 +270,7 @@ class MusicHandler {
 		}
 
 		// Update the queue message with new page
+		this.updateGuildData(guildId, { queuePage: newPage });
 		await this.updateQueueMessage(guildId, queue, newPage);
 		await interaction.deferUpdate();
 

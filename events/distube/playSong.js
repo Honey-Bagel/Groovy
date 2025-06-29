@@ -24,6 +24,7 @@ module.exports = {
 			});
 
 			await musicHandler.updateNowPlayingMessage(guildId, track, queue);
+			await musicHandler.updateQueueMessage(guildId, queue);
 			musicHandler.startTimer(guildId);
 
 

@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "move",
@@ -57,6 +59,8 @@ async function executeCommand(client, context) {
 		let song = newQueue.songs[from];
 		newQueue.songs[from] = newQueue.songs[to];
 		newQueue.songs[to] = song;
+
+		await musicHandler.updateQueueMessage(guildId, newQueue);
 
 		return sendFollowUp(context, {
 			content: `🔄 | Moved song from position ${from} to ${to}`,

@@ -12,6 +12,7 @@ module.exports = {
 	memberpermissions: [],
 	requiredroles: [],
 	alloweduserids: [],
+	disabled: true,
 	data: new SlashCommandBuilder()
 		.setName("search")
 		.setDescription("Search for a song")

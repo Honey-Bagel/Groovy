@@ -28,6 +28,8 @@ module.exports = {
 					});
 				}, 5000);
 			});
+
+			musicHandler.updateQueueMessage(queue.voiceChannel.guildId, queue);
 		} catch (err) {
 			console.log(`[ERROR] {Events} Failed to add song to queue: ${err.message}`.red);
 			sendErrorMessage(queue.textChannel, "Failed to add song", err.message);

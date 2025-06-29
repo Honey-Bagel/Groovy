@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "previous",
@@ -43,6 +45,8 @@ async function executeCommand(client, context) {
 		if (!newQueue || !newQueue.previousSongs || newQueue.previousSongs.length === 0) {
 			return sendError(context, "No previous songs found", "There are no previous songs to play.");
 		}
+
+		await musicHandler.updateQueueMessage(guildId, newQueue);
 
 		await newQueue.previous();
 		sendFollowUp(context, {

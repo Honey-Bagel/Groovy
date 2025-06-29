@@ -61,10 +61,10 @@ async function executeCommand(client, context) {
 			}
 
 			sendFollowUp(context, { content: `🔍 Searching for: \`${Text}\`...` });
-			client.distube.play(voiceChannel, Text, options);
+			await client.distube.play(voiceChannel, Text, options);
 		} catch(err) {
-			console.log(err.stack ? err.stack : e);
-			sendError(context, "An error occurred while trying to play the song", err.message, client);
+			console.log(`[ERROR] play.js ${err.stack}`.red);
+			sendError(context, "An error occurred while trying to play the song", err.message);
 		}
 		return;
 	} catch (error) {

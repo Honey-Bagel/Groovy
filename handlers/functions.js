@@ -6,7 +6,8 @@ const path = require("path");
 const Setting = require("../models/Settings");
 const ee = require("../configs/embed.json");
 const emojis = require("../configs/emojis.json");
-const { sendResponse, sendError } = require("../utils/commandUtils.js");
+const { sendFollowUp, sendError } = require("../utils/commandUtils.js");
+const Status = require("../models/Status");
 
 module.exports.change_status = change_status;
 module.exports.isChannelFull = isChannelFull;
@@ -16,6 +17,7 @@ module.exports.hasValidChannel = hasValidChannel;
 module.exports.sendErrorMessage = sendErrorMessage;
 module.exports.embedThen = embedThen;
 module.exports.delay = delay;
+module.exports.changeStatus = changeStatus;
 
 function change_status(client) {
 	const statusList = [`${config.prefix}help in ${client.guilds.cache.size} servers`, `BOT WORKING AGAIN! Sorry for the wait.`];
@@ -70,7 +72,7 @@ function hasValidChannel(context, guild, channel) {
 			.setColor(ee.wrongcolor)
 			.setTitle(`${emojis.x} **Please join ${guild.members.me.voice.channel ? "__my__" : "a"} VoiceChannel First.**`);
 
-		sendResponse(context, { embeds: [ embed ] });
+		sendFollowUp(context, { embeds: [ embed ] });
 		return false;
 	};
 	return true;
@@ -82,7 +84,7 @@ function isChannelFull(context, channel) {
 	   		.setColor(ee.wrongcolor)
 			.setTitle(`${emojis.x} Your Voice Channel is full, I can't join!`);
 
-		sendResponse(context, { embeds: [ embed ] });
+		sendFollowUp(context, { embeds: [ embed ] });
 		return false;
 	}
 	return true;
@@ -94,7 +96,7 @@ function isUserInChannel(context, channel) {
 			.setColor(ee.wrongcolor)
 			.setTitle(`${emojis.x} I am already connected somewhere else`);
 
-		sendResponse(context, { embeds: [ embed ] });
+		sendFollowUp(context, { embeds: [ embed ] });
 		return false;
 	}
 	return true;
@@ -107,7 +109,7 @@ function isQueueValid(context, client, guildId) {
 			.setTitle(`❌ ERROR | I am not playing Something`)
 			.setDescription(`The queue is empty`);
 
-		sendResponse(context, { embeds: [ embed ] });
+		sendFollowUp(context, { embeds: [ embed ] });
 		return false;
 	}
 	return true;
@@ -161,5 +163,39 @@ function delay(delayInms) {
 		});
 	} catch (e) {
 		console.log(String(e.stack).bgRed);
+	}
+}
+
+async function changeStatus(client, index) {
+	try {
+		const statusDoc = await Status.findById("botStatus");
+		if(!statusDoc || statusDoc.statuses.length === 0) {
+			console.log("[ERROR] No Statuses found in the database, returning default status");
+			return 0;
+		}
+
+		const activityMap = {
+			playing: ActivityType.Playing,
+			watching: ActivityType.Watching,
+			listening: ActivityType.Listening,
+			competing: ActivityType.Competing
+		};
+
+		// Check bounds before accessing array
+		if(index >= statusDoc.statuses.length) {
+			index = 0; // Reset to start
+		}
+
+		const status = statusDoc.statuses[index];
+
+		client.user.setActivity(eval('`' + status.message + '`'), {
+			type: activityMap[status.type] || ActivityType.Listening,
+		});
+
+		// Return next index
+		return index + 1;
+	} catch (e) {
+		console.log(`[ERROR] Failed to change status: ${e.stack}`.red);
+		return 0;
 	}
 }

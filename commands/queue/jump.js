@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "jump",
@@ -77,6 +79,8 @@ async function executeCommand(client, context) {
 		const embed = new EmbedBuilder()
 			.setColor("Green")
 			.setTitle(`⏭️ | Jumped to the **${position}${posEnd}** song in the queue`);
+
+		await musicHandler.updateQueueMessage(guildId, newQueue);
 
 		return sendFollowUp(context, { embeds: [ embed ] });
 

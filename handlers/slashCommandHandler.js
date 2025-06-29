@@ -18,6 +18,10 @@ module.exports = (client) => {
 				const command = require(filePath);
 				if(!command) continue;
 
+				if(command.disabled) {
+					continue;
+				}
+
 				// If command has slash command data, add it
 				if(command.data) {
 					client.slashCommands.set(command.data.name, command);

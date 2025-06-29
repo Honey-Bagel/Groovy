@@ -3,6 +3,8 @@ const ee = require('../../configs/embed.json');
 const { hasValidChannel, isUserInChannel, isQueueValid } = require('../../handlers/functions.js');
 const { sendErrorMessage, embedThen } = require('../../handlers/functions.js');
 const { sendFollowUp, sendError, deferResponse, getQuery, isSlashCommand, createContextWrapper } = require("../../utils/commandUtils.js");
+const MusicHandler = require("../../handlers/musicHandler.js");
+const musicHandler = MusicHandler.getInstance();
 
 module.exports = {
 	name: "unshuffle",
@@ -67,6 +69,8 @@ async function executeCommand(client, context) {
 		}
 
 		newQueue.songs = [newQueue.songs[0], ...unshuffledQueue];
+
+		await musicHandler.updateQueueMessage(guildId, newQueue);
 
 		return await sendFollowUp(context, {
 			embeds: [new EmbedBuilder()

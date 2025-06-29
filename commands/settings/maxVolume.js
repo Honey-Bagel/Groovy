@@ -9,7 +9,7 @@ module.exports = {
 	usage: "maxVolume <amount>",
 	aliases: ["mVolume", "servermaxvolume"],
 	description: "Sets the default max volume for the server",
-	memberpermissions: ["MANAGE_GUILD"],
+	memberpermissions: ["ManageGuild"],
 	requiredroles: [],
 	alloweduserids: [],
 	data: new SlashCommandBuilder()
@@ -41,10 +41,6 @@ async function executeCommand(client, context) {
 
 		const ctx = createContextWrapper(context);
 		const { member, guildId, guild } = ctx;
-
-		if (!member.permissions.has("MANAGE_GUILD")) {
-			return sendError(context, "You do not have permission to manage the server settings.");
-		}
 
 		if (!parameter) {
 			return sendError(context, "Please provide a valid volume amount for your server");
